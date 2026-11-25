@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ตารางคะแนนฟุตบอล</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;700&family=Prompt:wght@500;600&display=swap');
+:root{
+  color-scheme:light;
+  --bg:#f1f4f0;--surface:#fbfcfa;--ink:#16211b;--muted:#5b6a61;--line:#d5ddd6;
+  --accent:#1d6b46;--adv:#e1efe5;
+  --display:'Prompt','Noto Sans Thai',system-ui,sans-serif;
+  --body:'Noto Sans Thai','Sarabun',system-ui,'Thonburi',Tahoma,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme:dark;
+    --bg:#0f1713;--surface:#16211b;--ink:#e6efe9;--muted:#9bada2;--line:#2a3830;
+    --accent:#5cc08a;--adv:#1c3326;
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));
+}
+.wrap{max-width:70rem;margin:0 auto}
+header{margin-bottom:18px;display:flex;flex-direction:column;gap:6px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(1.45rem,5vw,2.1rem);line-height:1.25;margin:0;text-wrap:balance}
+.sub{margin:0;color:var(--muted);font-size:1rem}
+.meta{margin:0;color:var(--muted);font-size:.82rem}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,31rem),1fr));gap:20px;align-items:start}
+.card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card h2{font-family:var(--display);font-weight:600;font-size:1.2rem;line-height:1.3;margin:0;padding:14px 16px 8px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.94rem}
+th{font-weight:500;font-size:.74rem;line-height:1.25;color:var(--muted);text-align:center;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{text-align:center;padding:9px 4px;border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:0}
+th.rk,td.rk{width:2.2rem;color:var(--muted)}
+th.team,td.team{text-align:left;padding-left:6px;min-width:7.5rem}
+td.team{font-weight:500;overflow-wrap:anywhere}
+td.pts{font-weight:700}
+td.pts,th.pts{padding-right:12px}
+tr.adv td{background:var(--adv)}
+tr.adv td.rk{color:var(--accent);font-weight:700}
+.foot{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:16px;color:var(--muted);font-size:.84rem}
+.foot span{display:inline-flex;align-items:center;gap:8px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--adv);border:1px solid var(--accent)}
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<script>
+(function () {
+  'use strict';
+  // ข้อมูลสำรอง ใช้เมื่อโหลด data.json ไม่ได้ (เช่นเปิดไฟล์จากเครื่องโดยตรง)
+  var EMBEDDED = {"title":"ตารางคะแนนฟุตบอล","subtitle":"รอบแบ่งสาย","autoPoints":true,"advance":2,"updated":"2026-11-24T06:13:12.416Z","groups":[{"name":"สาย A","teams":[{"n":"นจอ.56","w":3,"d":1,"l":0,"gf":8,"ga":2,"pts":10},{"n":"ทีม A2","w":2,"d":1,"l":1,"gf":6,"ga":4,"pts":7},{"n":"ทีม A3","w":1,"d":2,"l":1,"gf":4,"ga":4,"pts":5},{"n":"ทีม A4","w":1,"d":0,"l":3,"gf":3,"ga":7,"pts":3},{"n":"ทีม A5","w":0,"d":2,"l":2,"gf":2,"ga":6,"pts":2}]},{"name":"สาย B","teams":[{"n":"ทีม B1","w":2,"d":2,"l":0,"gf":7,"ga":3,"pts":8},{"n":"ทีม B2","w":2,"d":1,"l":1,"gf":5,"ga":4,"pts":7},{"n":"ทีม B3","w":1,"d":2,"l":1,"gf":4,"ga":4,"pts":5},{"n":"ทีม B4","w":1,"d":1,"l":2,"gf":3,"ga":5,"pts":4},{"n":"ทีม B5","w":0,"d":2,"l":2,"gf":2,"ga":5,"pts":2}]}]};
+  var app = document.getElementById('app');
+  var last = '';
+
+  function pts(t, D) { return D.autoPoints ? t.w * 3 + t.d : t.pts; }
+  function fmtGd(n) { return n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0'; }
+  function ranked(g, D) {
+    return g.teams.slice().sort(function (a, b) {
+      return pts(b, D) - pts(a, D) || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || String(a.n).localeCompare(String(b.n), 'th');
+    });
+  }
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); }
+    catch (e) { return ''; }
+  }
+  function h(tag, props) {
+    var e = document.createElement(tag);
+    props = props || {};
+    Object.keys(props).forEach(function (k) {
+      if (k === 'class') e.className = props[k];
+      else if (k === 'text') e.textContent = props[k];
+      else e.setAttribute(k, props[k]);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (c == null) continue;
+      if (Array.isArray(c)) c.forEach(function (x) { e.append(x); });
+      else e.append(c);
+    }
+    return e;
+  }
+  function th(cls, label) { return h('th', { class: cls, scope: 'col' }, label); }
+  function headRow() {
+    return h('tr', null,
+      th('rk', '#'), th('team', 'ทีม'), th('', 'ชนะ'), th('', 'เสมอ'), th('', 'แพ้'),
+      th('', ['ประตู', h('br'), 'ได้']), th('', ['ประตู', h('br'), 'เสีย']),
+      th('', ['ผลต่าง', h('br'), 'ประตู']), th('pts', 'คะแนน'));
+  }
+  function row(D, t, i) {
+    return h('tr', { class: i < D.advance ? 'adv' : '' },
+      h('td', { class: 'rk', text: String(i + 1) }),
+      h('td', { class: 'team', text: String(t.n) }),
+      h('td', { text: String(t.w) }), h('td', { text: String(t.d) }), h('td', { text: String(t.l) }),
+      h('td', { text: String(t.gf) }), h('td', { text: String(t.ga) }),
+      h('td', { text: fmtGd(t.gf - t.ga) }),
+      h('td', { class: 'pts', text: String(pts(t, D)) }));
+  }
+  function group(D, g) {
+    return h('section', { class: 'card' },
+      h('h2', { text: String(g.name) }),
+      h('div', { class: 'scroll' },
+        h('table', { 'aria-label': 'ตารางคะแนน' + g.name },
+          h('thead', null, headRow()),
+          h('tbody', null, ranked(g, D).map(function (t, i) { return row(D, t, i); })))));
+  }
+  function render(D) {
+    document.title = D.title;
+    var head = h('header', null, h('h1', { text: D.title }));
+    if (D.subtitle) head.append(h('p', { class: 'sub', text: D.subtitle }));
+    if (D.updated) head.append(h('p', { class: 'meta', text: 'อัปเดตล่าสุด ' + fmtDate(D.updated) }));
+    var foot = h('div', { class: 'foot' });
+    if (D.advance > 0) foot.append(h('span', null, h('i', { class: 'sw' }), 'ทีมที่เข้ารอบ (อันดับ 1–' + D.advance + ' ของแต่ละสาย)'));
+    foot.append(h('span', { text: 'เรียงอันดับตามคะแนน ผลต่างประตู และประตูได้' }));
+    app.replaceChildren(head, h('div', { class: 'groups' }, D.groups.map(function (g) { return group(D, g); })), foot);
+  }
+  function show(D) {
+    var s = JSON.stringify(D);
+    if (s === last) return;
+    last = s;
+    render(D);
+  }
+
+  show(EMBEDDED);
+
+  // ถ้ามีการอัปโหลด data.json ใหม่ คนที่เปิดหน้าค้างไว้จะเห็นข้อมูลใหม่เองภายใน 30 วินาที
+  function poll() {
+    fetch('data.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (D) { if (D && D.groups) show(D); })
+      .catch(function () {});
+  }
+  poll();
+  setInterval(poll, 30000);
+})();
+</script>
+</body>
+</html>
